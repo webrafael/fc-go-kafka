@@ -10,14 +10,17 @@ import (
 func main() {
 	deliveryChan := make(chan kafka.Event)
 	producer := NewKafkaProducer()
-	Publish("Mensagem", "teste", producer, nil, deliveryChan)
+	Publish("Transferiu", "teste", producer, []byte("transferencia3"), deliveryChan)
 	go DeliveryReport(deliveryChan)
 	producer.Flush(1000)
 }
 
 func NewKafkaProducer() *kafka.Producer {
 	configMap := &kafka.ConfigMap{
-		"bootstrap.servers": "go-kafka-kafka-1",
+		"bootstrap.servers":   "go-kafka-kafka-1", // seta o servidor kafka
+		"delivery.timeout.ms": "0",                // seta o tempo máximo de espera durante os envios de mensagens
+		"acks":                "all",              // seta a importância de confirmação da resposta acknowledgement do kafka
+		"enable.idempotence":  "true",             // ao habilitar o recurso da idempotência é obrigatório setar o acks como all
 	}
 
 	p, err := kafka.NewProducer(configMap)
@@ -31,7 +34,7 @@ func Publish(msg string, topic string, producer *kafka.Producer, key []byte, del
 	message := &kafka.Message{
 		Value:          []byte(msg),
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-		Key:            key,
+		Key:            key, // importante para garantir a ordem de leitura entre os consumidores
 	}
 	err := producer.Produce(message, deliveryChan)
 	if err != nil {
