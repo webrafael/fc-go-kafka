@@ -11,15 +11,7 @@ func main() {
 	deliveryChan := make(chan kafka.Event)
 	producer := NewKafkaProducer()
 	Publish("Mensagem", "teste", producer, nil, deliveryChan)
-
-	e := <-deliveryChan
-	msg := e.(*kafka.Message)
-	if msg.TopicPartition.Error != nil {
-		fmt.Println("Erro ao enviar")
-	} else {
-		fmt.Println("Mensagem enviada:", msg.TopicPartition)
-	}
-
+	go DeliveryReport(deliveryChan)
 	producer.Flush(1000)
 }
 
@@ -46,4 +38,19 @@ func Publish(msg string, topic string, producer *kafka.Producer, key []byte, del
 		return err
 	}
 	return nil
+}
+
+func DeliveryReport(deliveryChan chan kafka.Event) {
+	for e := range deliveryChan {
+		switch ev := e.(type) {
+		case *kafka.Message:
+			if ev.TopicPartition.Error != nil {
+				fmt.Println("Erro ao enviar")
+			} else {
+				fmt.Println("Mensagem enviada:", ev.TopicPartition)
+				// anotar no banco de dados que a mensagem foi processada.
+				// ex: confirma que uma transferência bancária ocorreu.
+			}
+		}
+	}
 }
